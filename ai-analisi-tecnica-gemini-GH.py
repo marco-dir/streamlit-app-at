@@ -49,7 +49,9 @@ if st.sidebar.button("Mostra Dati"):
     stock_data = {}
     for ticker in tickers:
         # Download data for each ticker using yfinance
-        data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
+        # data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
+        ticker_obj = yf.Ticker(ticker)
+        data = ticker_obj.history(start=start_date, end=end_date)
         if not data.empty:
             stock_data[ticker] = data
         else:
