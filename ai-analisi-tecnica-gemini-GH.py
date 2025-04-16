@@ -48,14 +48,28 @@ indicators = st.sidebar.multiselect(
 if st.sidebar.button("Mostra Dati"):
     stock_data = {}
     for ticker in tickers:
-        # Download data for each ticker using yfinance
-        data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
+        try:
+            # Prova con multi_level_index=False
+            data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
+        except TypeError:
+            # Se il parametro non è supportato, scarica senza di esso
+            data = yf.download(ticker, start=start_date, end=end_date)
+            # Gestisci le colonne multi-indice se necessario
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+        
+        # Verifica se i dati sono stati scaricati correttamente
         if not data.empty:
             stock_data[ticker] = data
         else:
             st.warning(f"No data found for {ticker}.")
-    st.session_state["stock_data"] = stock_data
-    st.success("Dati Titoli caricati con successo per: " + ", ".join(stock_data.keys()))
+    
+    # Salva i dati nella sessione e mostra un messaggio di successo
+    if stock_data:
+        st.session_state["stock_data"] = stock_data
+        st.success("Dati Titoli caricati con successo per: " + ", ".join(stock_data.keys()))
+    else:
+        st.error("Nessun dato è stato caricato. Verifica i ticker o le date selezionate.")
 
 # Ensure we have data to analyze
 if "stock_data" in st.session_state and st.session_state["stock_data"]:
