@@ -26,7 +26,7 @@ st.title("Dashboard Analisi Tecnica AI")
 st.sidebar.header("Configurazione")
 
 # Input for multiple stock tickers (comma-separated)
-tickers_input = st.sidebar.text_input("Inserisci Stock Tickers (separati da virgola):", "AAPL,MSFT,GOOG")
+tickers_input = st.sidebar.text_input("Inserisci Stock Tickers (separati da virgola):", "AAPL,MSFT,ISP.MI")
 # Parse tickers by stripping extra whitespace and splitting on commas
 tickers = [ticker.strip().upper() for ticker in tickers_input.split(",") if ticker.strip()]
 
