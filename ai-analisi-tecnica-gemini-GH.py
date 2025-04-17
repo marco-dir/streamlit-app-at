@@ -14,8 +14,6 @@ from datetime import datetime, timedelta
 # Configure the API key - IMPORTANT: Use Streamlit secrets or environment variables for security
 # For now, using hardcoded API key - REPLACE WITH YOUR ACTUAL API KEY SECURELY
 GOOGLE_API_KEY = st.secrets["MY_GOOGLE_API_KEY"]
-# Usa la chiave API nel tuo codice
-st.write(f"Chiave API caricata: {GOOGLE_API_KEY}")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Select the Gemini model - using 'gemini-2.0-flash' as a general-purpose model
