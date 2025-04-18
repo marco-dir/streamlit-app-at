@@ -111,14 +111,6 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
         }
 
         # Updated prompt asking for a detailed justification of technical analysis and a recommendation.
-        #analysis_prompt = (
-        #    f"You are a Stock Trader specializing in Technical Analysis at a top financial institution. "
-        #    f"Analyze the stock chart for {ticker} based on its candlestick chart and the displayed technical indicators. "
-        #    f"Provide a detailed justification of your analysis, explaining what patterns, signals, and trends you observe. "
-        #    f"Then, based solely on the chart, provide a recommendation from the following options: "
-        #    f"'Strong Buy', 'Buy', 'Weak Buy', 'Hold', 'Weak Sell', 'Sell', or 'Strong Sell'. "
-        #    f"Return your output as a JSON object with two keys: 'action' and 'justification'."
-        #)
         analysis_prompt = (
             f"Sei un Trader Specializzato in Analisi Tecnica presso una delle principali istituzioni finanziarie. "
             f"Analizza il grafico azionario per {ticker} basandoti sul grafico a candele e sugli indicatori tecnici visualizzati. "
