@@ -27,7 +27,7 @@ st.title("Dashboard Analisi Tecnica AI")
 st.sidebar.header("Configurazione")
 
 # Input for multiple stock tickers (comma-separated)
-tickers_input = st.sidebar.text_input("Inserisci Stock Tickers (separati da virgola):", "AAPL,MSFT,ISP.MI")
+tickers_input = st.sidebar.text_input("Inserisci il Ticker del Titolo (separati da virgola):", "AAPL,MSFT,ISP.MI")
 # Parse tickers by stripping extra whitespace and splitting on commas
 tickers = [ticker.strip().upper() for ticker in tickers_input.split(",") if ticker.strip()]
 
@@ -54,7 +54,7 @@ if st.sidebar.button("Mostra Dati"):
         if not data.empty:
             stock_data[ticker] = data
         else:
-            st.warning(f"No data found for {ticker}.")
+            st.warning(f"Nessun dato trovato per {ticker}.")
     st.session_state["stock_data"] = stock_data
     st.success("Dati Titoli caricati con successo per: " + ", ".join(stock_data.keys()))
 
