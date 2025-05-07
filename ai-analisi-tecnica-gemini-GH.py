@@ -23,7 +23,7 @@ gen_model = genai.GenerativeModel(MODEL_NAME)
 
 # Set up Streamlit app
 st.set_page_config(layout="wide")
-st.title("Dashboard Analisi Tecnica AI")
+st.title("Analisi Tecnica AI")
 st.sidebar.header("Configurazione")
 
 # Input for multiple stock tickers (comma-separated)
