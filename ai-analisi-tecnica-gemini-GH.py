@@ -5,10 +5,12 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import google.generativeai as genai
 import tempfile
 import os
 import json
+import numpy as np
 from datetime import datetime, timedelta
 
 # Configure the API key - IMPORTANT: Use Streamlit secrets or environment variables for security
@@ -27,7 +29,7 @@ st.title("Analisi Tecnica AI")
 st.sidebar.header("Configurazione")
 
 # Input for multiple stock tickers (comma-separated)
-tickers_input = st.sidebar.text_input("Inserisci i Ticker dei Titoli (separati da virgola):", "AAPL,MSFT,ISP.MI")
+tickers_input = st.sidebar.text_input("Inserisci il Ticker del Titolo (separati da virgola):", "AAPL,MSFT,GOOG")
 # Parse tickers by stripping extra whitespace and splitting on commas
 tickers = [ticker.strip().upper() for ticker in tickers_input.split(",") if ticker.strip()]
 
@@ -41,8 +43,8 @@ end_date = st.sidebar.date_input("Data Fine", value=end_date_default)
 st.sidebar.subheader("Indicatori Tecnici")
 indicators = st.sidebar.multiselect(
     "Seleziona Indicatori:",
-    ["20-Day SMA", "20-Day EMA", "20-Day Bollinger Bands", "VWAP"],
-    default=["20-Day SMA"]
+    ["20-Day SMA", "40-Day SMA", "20-Day EMA", "200-Day SMA", "20-Day Bollinger Bands", "VWAP", "Composite Momentum", "Heisenberg"],
+    default=["20-Day SMA", "40-Day SMA", "200-Day SMA"]
 )
 
 # Button to fetch data for all tickers
@@ -50,7 +52,7 @@ if st.sidebar.button("Mostra Dati"):
     stock_data = {}
     for ticker in tickers:
         # Download data for each ticker using yfinance
-        data = yf.download(ticker, start=start_date, end=end_date,multi_level_index=False)
+        data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
         if not data.empty:
             stock_data[ticker] = data
         else:
@@ -61,40 +63,194 @@ if st.sidebar.button("Mostra Dati"):
 # Ensure we have data to analyze
 if "stock_data" in st.session_state and st.session_state["stock_data"]:
 
+    # Define a function to calculate Composite Momentum
+    def calculate_composite_momentum(data, periods=[5, 10, 20, 50]):
+        # Calculate momentum for each period
+        momentum = pd.DataFrame(index=data.index)
+        
+        for period in periods:
+            # Momentum is calculated as percentage change over the period
+            momentum[f'mom_{period}'] = data['Close'].pct_change(period) * 100
+        
+        # Composite momentum is the average of all period momentums
+        momentum['composite'] = momentum.mean(axis=1)
+        
+        return momentum['composite']
+    
+    # Define a function to calculate Heisenberg Indicator
+    def calculate_heisenberg(data, short_period=10, long_period=30):
+        # Calculate short-term volatility
+        short_vol = data['Close'].pct_change().rolling(window=short_period).std() * 100
+        
+        # Calculate long-term volatility
+        long_vol = data['Close'].pct_change().rolling(window=long_period).std() * 100
+        
+        # Heisenberg indicator is the ratio of short-term to long-term volatility
+        heisenberg = short_vol / long_vol
+        
+        return heisenberg
+
     # Define a function to build chart, call the Gemini API and return structured result
     def analyze_ticker(ticker, data):
-        # Build candlestick chart for the given ticker's data
-        fig = go.Figure(data=[
-            go.Candlestick(
-                x=data.index,
-                open=data['Open'],
-                high=data['High'],
-                low=data['Low'],
-                close=data['Close'],
-                name="Candlestick"
-            )
-        ])
+        # Check if we need to display the subplots for momentum or heisenberg
+        need_subplots = "Composite Momentum" in indicators or "Heisenberg" in indicators
+        
+        # Create figure with subplots if needed
+        if need_subplots:
+            # Count how many subplots we need (main chart + indicators)
+            subplot_count = 1  # Main chart
+            if "Composite Momentum" in indicators:
+                subplot_count += 1
+            if "Heisenberg" in indicators:
+                subplot_count += 1
+                
+            # Create subplot grid
+            specs = [[{"type": "candlestick"}]]
+            for _ in range(subplot_count - 1):
+                specs.append([{"type": "scatter"}])
+                
+            # Calculate row heights to make main chart larger
+            # MODIFICATO: Aumentata l'altezza del grafico principale dall'originale 0.7 (70%) a 0.8 (80%)
+            row_heights = [0.8]  # Main chart takes 80% of height
+            remaining_height = 0.2
+            for _ in range(subplot_count - 1):
+                row_heights.append(remaining_height / (subplot_count - 1))
+                
+            # Crea la figura con i subplots e le altezze personalizzate
+            fig = make_subplots(rows=subplot_count, cols=1, shared_xaxes=True, 
+                               vertical_spacing=0.05, specs=specs, row_heights=row_heights)
+                
+            # Impostiamo l'altezza e larghezza totale
+            fig.update_layout(height=800, width=1000)
+        else:
+            # Just create a regular figure
+            fig = go.Figure()
+            fig.update_layout(height=800, width=1000)
+        
+        # Add candlestick chart
+        candlestick = go.Candlestick(
+            x=data.index,
+            open=data['Open'],
+            high=data['High'],
+            low=data['Low'],
+            close=data['Close'],
+            name="Candlestick"
+        )
+        
+        if need_subplots:
+            fig.add_trace(candlestick, row=1, col=1)
+        else:
+            fig.add_trace(candlestick)
 
         # Add selected technical indicators
         def add_indicator(indicator):
             if indicator == "20-Day SMA":
                 sma = data['Close'].rolling(window=20).mean()
-                fig.add_trace(go.Scatter(x=data.index, y=sma, mode='lines', name='SMA (20)'))
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma, mode='lines', name='SMA (20)'), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma, mode='lines', name='SMA (20)'))
+            
+            elif indicator == "40-Day SMA":
+                sma40 = data['Close'].rolling(window=40).mean()
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma40, mode='lines', name='SMA (40)', 
+                                            line=dict(color='orange', width=1.5)), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma40, mode='lines', name='SMA (40)', 
+                                            line=dict(color='orange', width=1.5)))
+            
+            elif indicator == "200-Day SMA":
+                sma200 = data['Close'].rolling(window=200).mean()
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma200, mode='lines', name='SMA (200)', 
+                                            line=dict(color='purple', width=1.5)), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=sma200, mode='lines', name='SMA (200)', 
+                                            line=dict(color='purple', width=1.5)))
+            
             elif indicator == "20-Day EMA":
                 ema = data['Close'].ewm(span=20).mean()
-                fig.add_trace(go.Scatter(x=data.index, y=ema, mode='lines', name='EMA (20)'))
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=ema, mode='lines', name='EMA (20)'), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=ema, mode='lines', name='EMA (20)'))
+            
             elif indicator == "20-Day Bollinger Bands":
                 sma = data['Close'].rolling(window=20).mean()
                 std = data['Close'].rolling(window=20).std()
                 bb_upper = sma + 2 * std
                 bb_lower = sma - 2 * std
-                fig.add_trace(go.Scatter(x=data.index, y=bb_upper, mode='lines', name='BB Upper'))
-                fig.add_trace(go.Scatter(x=data.index, y=bb_lower, mode='lines', name='BB Lower'))
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=bb_upper, mode='lines', name='BB Upper'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=data.index, y=bb_lower, mode='lines', name='BB Lower'), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=bb_upper, mode='lines', name='BB Upper'))
+                    fig.add_trace(go.Scatter(x=data.index, y=bb_lower, mode='lines', name='BB Lower'))
+            
             elif indicator == "VWAP":
                 data['VWAP'] = (data['Close'] * data['Volume']).cumsum() / data['Volume'].cumsum()
-                fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], mode='lines', name='VWAP'))
+                if need_subplots:
+                    fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], mode='lines', name='VWAP'), row=1, col=1)
+                else:
+                    fig.add_trace(go.Scatter(x=data.index, y=data['VWAP'], mode='lines', name='VWAP'))
+            
+            elif indicator == "Composite Momentum":
+                # Calculate Composite Momentum
+                momentum = calculate_composite_momentum(data)
+                
+                # Find the current subplot row
+                row = 2
+                if need_subplots:
+                    # Add the momentum line
+                    fig.add_trace(go.Scatter(x=data.index, y=momentum, mode='lines', 
+                                            name='Composite Momentum', line=dict(color='green')), row=row, col=1)
+                    
+                    # Add media mobile a 7 periodi
+                    momentum_ma7 = momentum.rolling(window=7).mean()
+                    fig.add_trace(go.Scatter(x=data.index, y=momentum_ma7, mode='lines', 
+                                            name='Mom MA (7)', line=dict(color='blue', width=1.5, dash='dot')), 
+                                row=row, col=1)
+                    
+                    # Add media mobile a 30 periodi
+                    momentum_ma30 = momentum.rolling(window=30).mean()
+                    fig.add_trace(go.Scatter(x=data.index, y=momentum_ma30, mode='lines', 
+                                            name='Mom MA (30)', line=dict(color='red', width=1.5, dash='dot')), 
+                                row=row, col=1)
+                    
+                    # Add a zero line for reference
+                    fig.add_trace(go.Scatter(x=data.index, y=[0] * len(data.index), mode='lines', 
+                                            name='Zero Line', line=dict(color='black', dash='dash')), row=row, col=1)
+                    
+                    # Update the y-axis title
+                    fig.update_yaxes(title_text="Momentum %", row=row, col=1)
+            
+            elif indicator == "Heisenberg":
+                # Calculate Heisenberg indicator
+                heisenberg = calculate_heisenberg(data)
+                
+                # Find the current subplot row
+                row = 2
+                if "Composite Momentum" in indicators:
+                    row = 3
+                
+                if need_subplots:
+                    # Add the Heisenberg line
+                    fig.add_trace(go.Scatter(x=data.index, y=heisenberg, mode='lines', 
+                                            name='Heisenberg', line=dict(color='red')), row=row, col=1)
+                    
+                    # Add a reference line at 1.0
+                    fig.add_trace(go.Scatter(x=data.index, y=[1] * len(data.index), mode='lines', 
+                                            name='Reference', line=dict(color='black', dash='dash')), row=row, col=1)
+                    
+                    # Update the y-axis title
+                    fig.update_yaxes(title_text="Heisenberg", row=row, col=1)
+
+        # Add all selected indicators
         for ind in indicators:
             add_indicator(ind)
+        
+        # Update layout
         fig.update_layout(xaxis_rangeslider_visible=False)
 
         # Save chart as temporary PNG file and read image bytes
@@ -111,7 +267,7 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
             "mime_type": "image/png"
         }
 
-        # Updated prompt asking for a detailed justification of technical analysis and a recommendation.
+        # Analysis prompt in Italian
         analysis_prompt = (
             f"Sei un Trader Specializzato in Analisi Tecnica presso una delle principali istituzioni finanziarie. "
             f"Analizza il grafico azionario per {ticker} basandoti sul grafico a candele e sugli indicatori tecnici visualizzati. "
