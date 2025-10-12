@@ -28,6 +28,37 @@ st.set_page_config(layout="wide")
 st.title("Analisi Tecnica AI")
 st.sidebar.header("Configurazione")
 
+# CSS per rimuovere TUTTI i link anchor da tutti i titoli
+hide_all_anchor_links = """
+    <style>
+    /* Nasconde tutti i link anchor su tutti i livelli di titolo */
+    h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Nasconde gli elementi anchor di Streamlit */
+    .css-10trblm, .css-16idsys, .css-1dp5vir {
+        display: none !important;
+    }
+    
+    /* Metodo universale per tutte le versioni di Streamlit */
+    [data-testid="stMarkdownContainer"] a[href^="#"] {
+        display: none !important;
+    }
+    
+    /* Nasconde specificamente i viewer badge */
+    .viewerBadge_container__1QSob,
+    .viewerBadge_link__1S137,
+    .styles_viewerBadge__1yB5_,
+    [class*="viewerBadge"] {
+        display: none !important;
+    }
+    </style>
+"""
+
+st.markdown(hide_all_anchor_links, unsafe_allow_html=True)
+
 # Input for multiple stock tickers (comma-separated)
 tickers_input = st.sidebar.text_input("Inserisci il Ticker del Titolo (separati da virgola):", "AAPL,MSFT,ISP.MI")
 # Parse tickers by stripping extra whitespace and splitting on commas
