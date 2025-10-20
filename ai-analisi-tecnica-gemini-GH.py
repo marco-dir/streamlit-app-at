@@ -10,9 +10,7 @@ import json
 import numpy as np
 from datetime import datetime, timedelta
 
-# Configure the API key - IMPORTANT: Use Streamlit secrets or environment variables for security
-# For now, using hardcoded API key - REPLACE WITH YOUR ACTUAL API KEY SECURELY
-# GOOGLE_API_KEY = st.secrets["MY_GOOGLE_API_KEY"]
+# Configure the API key
 GOOGLE_API_KEY = os.getenv("MY_GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
