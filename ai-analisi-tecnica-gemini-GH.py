@@ -54,6 +54,17 @@ hide_all_anchor_links = """
 
 st.markdown(hide_all_anchor_links, unsafe_allow_html=True)
 
+# Funzione per ottenere il nome della società
+def get_company_name(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        # Prova a ottenere il nome lungo o breve della società
+        name = info.get('longName') or info.get('shortName') or ticker
+        return name
+    except:
+        return ticker
+
 # Input for multiple stock tickers (comma-separated)
 tickers_input = st.sidebar.text_input("Inserisci il Ticker del Titolo (separati da virgola):", "AAPL,MSFT,ISP.MI")
 # Parse tickers by stripping extra whitespace and splitting on commas
@@ -76,14 +87,17 @@ indicators = st.sidebar.multiselect(
 # Button to fetch data for all tickers
 if st.sidebar.button("Mostra Dati"):
     stock_data = {}
+    company_names = {}
     for ticker in tickers:
         # Download data for each ticker using yfinance
         data = yf.download(ticker, start=start_date, end=end_date, multi_level_index=False)
         if not data.empty:
             stock_data[ticker] = data
+            company_names[ticker] = get_company_name(ticker)
         else:
             st.warning(f"Nessun dato trovato per {ticker}.")
     st.session_state["stock_data"] = stock_data
+    st.session_state["company_names"] = company_names
     st.success("Dati Titoli caricati con successo per: " + ", ".join(stock_data.keys()))
 
 # Ensure we have data to analyze
@@ -117,7 +131,7 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
         return heisenberg
 
     # Define a function to build chart, call the Gemini API and return structured result
-    def analyze_ticker(ticker, data):
+    def analyze_ticker(ticker, data, company_name):
         # Check if we need to display the subplots for momentum or heisenberg
         need_subplots = "Composite Momentum" in indicators or "Heisenberg" in indicators
         
@@ -136,7 +150,6 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
                 specs.append([{"type": "scatter"}])
                 
             # Calculate row heights to make main chart larger
-            # MODIFICATO: Aumentata l'altezza del grafico principale dall'originale 0.7 (70%) a 0.8 (80%)
             row_heights = [0.8]  # Main chart takes 80% of height
             remaining_height = 0.2
             for _ in range(subplot_count - 1):
@@ -144,14 +157,15 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
                 
             # Crea la figura con i subplots e le altezze personalizzate
             fig = make_subplots(rows=subplot_count, cols=1, shared_xaxes=True, 
-                               vertical_spacing=0.05, specs=specs, row_heights=row_heights)
+                               vertical_spacing=0.05, specs=specs, row_heights=row_heights,
+                               subplot_titles=[f"{ticker} - {company_name}"] + [""] * (subplot_count - 1))
                 
             # Impostiamo l'altezza e larghezza totale
             fig.update_layout(height=800, width=1000)
         else:
             # Just create a regular figure
             fig = go.Figure()
-            fig.update_layout(height=800, width=1000)
+            fig.update_layout(height=800, width=1000, title=f"{ticker} - {company_name}")
         
         # Add candlestick chart
         candlestick = go.Candlestick(
@@ -296,7 +310,7 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
         # Analysis prompt in Italian
         analysis_prompt = (
             f"Sei un Trader Specializzato in Analisi Tecnica presso una delle principali istituzioni finanziarie. "
-            f"Analizza il grafico azionario per {ticker} basandoti sul grafico a candele e sugli indicatori tecnici visualizzati. "
+            f"Analizza il grafico azionario per {ticker} ({company_name}) basandoti sul grafico a candele e sugli indicatori tecnici visualizzati. "
             f"Fornisci una giustificazione dettagliata della tua analisi, spiegando quali pattern, segnali e trend osservi. "
             f"Poi, basandoti esclusivamente sul grafico, fornisci una raccomandazione tra le seguenti opzioni: "
             f"'Strong Buy' (Acquisto Forte), 'Buy' (Acquisto), 'Weak Buy' (Acquisto Debole), 'Hold' (Mantieni), 'Weak Sell' (Vendita Debole), 'Sell' (Vendita) o 'Strong Sell' (Vendita Forte). "
@@ -335,7 +349,7 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
         return fig, result
 
     # Create tabs: first tab for overall summary, subsequent tabs per ticker
-    tab_names = ["Sommario"] + list(st.session_state["stock_data"].keys())
+    tab_names = ["Sommario"] + [f"{ticker} - {st.session_state['company_names'].get(ticker, ticker)}" for ticker in st.session_state["stock_data"].keys()]
     tabs = st.tabs(tab_names)
 
     # List to store overall results
@@ -344,12 +358,16 @@ if "stock_data" in st.session_state and st.session_state["stock_data"]:
     # Process each ticker and populate results
     for i, ticker in enumerate(st.session_state["stock_data"]):
         data = st.session_state["stock_data"][ticker]
+        company_name = st.session_state["company_names"].get(ticker, ticker)
         # Analyze ticker: get chart figure and structured output result
-        fig, result = analyze_ticker(ticker, data)
-        overall_results.append({"Titolo": ticker, "Raccomandazione": result.get("azione", "N/A")})
+        fig, result = analyze_ticker(ticker, data, company_name)
+        overall_results.append({
+            "Titolo": f"{ticker} - {company_name}", 
+            "Raccomandazione": result.get("azione", "N/A")
+        })
         # In each ticker-specific tab, display the chart and detailed justification
         with tabs[i + 1]:
-            st.subheader(f"Analisi per {ticker}")
+            st.subheader(f"Analisi per {ticker} - {company_name}")
             st.plotly_chart(fig)
             st.write("**Giustificazione Dettagliata:**")
             st.write(result.get("giustificazione", "Nessuna giustificazione."))
