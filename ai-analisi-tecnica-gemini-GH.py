@@ -1,6 +1,3 @@
-## AI-Powered Technical Analysis Dashboard (Gemini 2.0)
-
-# Libraries
 import streamlit as st
 import yfinance as yf
 import pandas as pd
