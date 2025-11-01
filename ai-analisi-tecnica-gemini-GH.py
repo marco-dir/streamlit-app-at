@@ -20,7 +20,7 @@ gen_model = genai.GenerativeModel(MODEL_NAME)
 
 # Set up Streamlit app
 st.set_page_config(layout="wide")
-st.title("Analisi Tecnica AI")
+st.title("Analisi Tecnica IA")
 st.sidebar.header("Configurazione")
 
 # CSS per rimuovere TUTTI i link anchor da tutti i titoli
